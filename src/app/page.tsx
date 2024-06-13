@@ -1,11 +1,36 @@
 'use client'
-
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { Connector, useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi'
+import { useState } from 'react'
 
 function App() {
   const account = useAccount()
-  const { connectors, connect, status, error } = useConnect()
+  const { connectors, connectAsync, status, error } = useConnect()
   const { disconnect } = useDisconnect()
+  const { signMessageAsync } = useSignMessage()
+
+  const [isVerified, setIsVerified] = useState(false)
+
+  const handleConnect = async (connector: Connector) => {
+    try {
+      const connectResult = await connectAsync({ connector })
+
+      const message = "Please sign this message to verify your wallet."
+      const signature = await signMessageAsync({ message })
+
+      if (signature) {
+        setIsVerified(true)
+        console.log("Connected and verified", connectResult)
+      } else {
+        disconnect()
+        setIsVerified(false)
+        console.log("Verification failed, disconnected")
+      }
+    } catch (err) {
+      console.error("Error connecting:", err)
+      disconnect()
+      setIsVerified(false)
+    }
+  }
 
   return (
     <>
@@ -21,7 +46,10 @@ function App() {
         </div>
 
         {account.status === 'connected' && (
-          <button type="button" onClick={() => disconnect()}>
+          <button type="button" onClick={() => {
+            disconnect()
+            setIsVerified(false)
+          }}>
             Disconnect
           </button>
         )}
@@ -29,15 +57,21 @@ function App() {
 
       <div>
         <h2>Connect</h2>
-        {connectors.map((connector) => (
-          <button
-            key={connector.uid}
-            onClick={() => connect({ connector })}
-            type="button"
-          >
-            {connector.name}
-          </button>
-        ))}
+        {!isVerified ? (
+          <div>
+            {connectors.map((connector) => (
+              <button
+                key={connector.uid}
+                onClick={() => handleConnect(connector)}
+                type="button"
+              >
+                {connector.name}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div>Wallet verified and connected!</div>
+        )}
         <div>{status}</div>
         <div>{error?.message}</div>
       </div>
